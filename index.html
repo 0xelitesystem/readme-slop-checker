@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>README Slop Checker</title>
+<meta name="description" content="Audit a GitHub README for AI-generated cliche patterns. BYOK Claude API.">
+<meta name="ai.description" content="A single-page web tool that fetches a public GitHub repo's README and runs an anti-slop audit prompt against it via the Claude API. Returns structured findings with severity tags. BYOK; no key storage.">
+<meta property="og:title" content="README Slop Checker">
+<meta property="og:description" content="Audit a GitHub README for AI-generated cliche patterns.">
+<meta property="og:type" content="website">
+<style>
+:root {
+  --bg: #0d0d0d;
+  --bg-2: #161616;
+  --fg: #e8e8e8;
+  --fg-dim: #b0b0b0;
+  --border: #2a2a2a;
+  --accent: #50fa7b;
+  --error: #ff6b6b;
+  --warn: #f1fa8c;
+  --info: #8be9fd;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  min-height: 100vh;
+  padding: 2.5rem 1rem 4rem;
+}
+.container { max-width: 760px; margin: 0 auto; }
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  background: var(--accent);
+  color: #000;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+}
+
+header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+}
+h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+h1 .accent { color: var(--accent); }
+.tagline {
+  color: var(--fg-dim);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+form { margin-bottom: 1.5rem; }
+.field { margin-bottom: 1rem; }
+label {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--fg-dim);
+  margin-bottom: 0.375rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+input[type="text"], input[type="password"] {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.625rem 0.75rem;
+  font: inherit;
+  font-size: 0.9375rem;
+  border-radius: 2px;
+}
+input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.help {
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  margin-top: 0.375rem;
+}
+button {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  padding: 0.625rem 1.5rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+button:hover:not(:disabled) { filter: brightness(1.1); }
+button:focus-visible { outline: 2px solid var(--info); outline-offset: 2px; }
+button:disabled {
+  background: var(--border);
+  color: var(--fg-dim);
+  cursor: not-allowed;
+}
+
+.results {
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  padding: 1.5rem;
+  border-radius: 2px;
+  margin-top: 1.5rem;
+}
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.verdict-tag {
+  display: inline-block;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 2px;
+}
+.verdict-tag.pass { background: var(--accent); color: #000; }
+.verdict-tag.fail { background: var(--error); color: #000; }
+.verdict-meta { color: var(--fg-dim); font-size: 0.875rem; }
+
+.severity-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.625rem;
+  margin-bottom: 1.25rem;
+}
+.sev-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  border-radius: 2px;
+}
+.sev-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: block;
+}
+.sev-label {
+  font-size: 0.6875rem;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.sev-card.blocker .sev-count { color: var(--error); }
+.sev-card.major .sev-count { color: var(--warn); }
+.sev-card.minor .sev-count { color: var(--info); }
+
+.findings { list-style: none; }
+.finding {
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+}
+.finding:first-child { border-top: none; padding-top: 0; }
+.finding-head {
+  display: flex;
+  gap: 0.625rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 2px;
+}
+.tag.blocker { background: var(--error); color: #000; }
+.tag.major { background: var(--warn); color: #000; }
+.tag.minor { background: var(--info); color: #000; }
+.tag.nit { background: var(--border); color: var(--fg); }
+.finding-cat {
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.finding-quote {
+  background: var(--bg);
+  padding: 0.625rem 0.75rem;
+  border-radius: 2px;
+  font-size: 0.8125rem;
+  color: var(--accent);
+  margin: 0.5rem 0;
+  border: 1px solid var(--border);
+  word-break: break-word;
+}
+.finding-issue { font-size: 0.875rem; margin: 0.375rem 0; }
+.finding-suggest {
+  font-size: 0.8125rem;
+  color: var(--fg-dim);
+}
+.finding-suggest::before {
+  content: "fix: ";
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status {
+  padding: 1rem 1.25rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+.status.error {
+  border-color: var(--error);
+  color: var(--error);
+}
+.status.error strong { color: var(--error); }
+
+.spinner {
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+  margin-right: 0.625rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--fg-dim);
+  line-height: 1.7;
+}
+footer a { color: var(--fg-dim); text-decoration: underline; text-underline-offset: 2px; }
+footer a:hover, footer a:focus { color: var(--accent); }
+
+@media (max-width: 600px) {
+  body { padding: 1.5rem 1rem 3rem; }
+  .severity-grid { grid-template-columns: repeat(2, 1fr); }
+  h1 { font-size: 1.25rem; }
+}
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">Skip to main</a>
+<div class="container">
+  <header>
+    <h1>README <span class="accent">Slop Checker</span></h1>
+    <p class="tagline">Audit a GitHub README for AI-generated cliche patterns. BYOK Claude API.</p>
+  </header>
+
+  <main id="main">
+    <form id="audit-form" novalidate>
+      <div class="field">
+        <label for="repo">GitHub repo</label>
+        <input type="text" id="repo" name="repo"
+          placeholder="owner/repo or https://github.com/owner/repo"
+          required autocomplete="off" spellcheck="false"
+          aria-describedby="repo-help">
+        <div id="repo-help" class="help">Public repos only. Reads the default branch's README.</div>
+      </div>
+
+      <div class="field">
+        <label for="apikey">Anthropic API key</label>
+        <input type="password" id="apikey" name="apikey"
+          placeholder="sk-ant-..."
+          required autocomplete="off" spellcheck="false"
+          aria-describedby="key-help">
+        <div id="key-help" class="help">Stays in this browser tab only. Never stored, never sent anywhere except api.anthropic.com.</div>
+      </div>
+
+      <button type="submit" id="run-btn">Run audit</button>
+    </form>
+
+    <div id="output" role="region" aria-live="polite" aria-label="Audit results"></div>
+  </main>
+
+  <footer>
+    <p>Open source: <a href="https://github.com/0xelitesystem/readme-slop-checker" target="_blank" rel="noopener">github.com/0xelitesystem/readme-slop-checker</a></p>
+    <p>Uses the anti-slop-audit prompt from <a href="https://github.com/0xelitesystem/prompt-templates" target="_blank" rel="noopener">prompt-templates</a>. MIT licensed.</p>
+    <p>Not affiliated with Anthropic or GitHub. API costs are billed to your own Anthropic account.</p>
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+const ANTI_SLOP_PROMPT = `You are a copy editor specializing in detecting AI-generated cliches. Audit the content below against the rules in each category. Return a structured report.
+
+CONTENT:
+{{CONTENT}}
+
+CONTEXT: GitHub README for an open-source project. Code blocks, badges, and command examples are exempt from style rules.
+
+CATEGORIES:
+
+1. BANNED VOCABULARY (any occurrence in prose = major)
+- delve, delving
+- tapestry, rich tapestry
+- robust (when used for non-statistical claims)
+- leverage (as a verb)
+- seamless, seamlessly
+- navigate the landscape, the landscape of
+- in today's fast-paced world, in today's digital age
+- in the realm of
+- ever-evolving, ever-changing
+- unprecedented (unless quantitatively true)
+- paradigm shift
+- journey (as metaphor for process)
+- embark on
+- unlock the power of
+- elevate your, elevate the
+- harness the power of
+- foster (as verb for creating)
+- dive deep, dive into
+- it's worth noting that
+- it's important to remember
+- when it comes to
+- at the end of the day
+- in conclusion
+- ultimately
+
+2. STRUCTURAL PATTERNS (count occurrences in prose, threshold = major)
+- Em-dashes: more than 2 per 200 words
+- "Not just X, but Y" construction: more than 1 per 500 words
+- Bullet density: more than 50% of prose content as bullet points
+- Sentence-initial "Furthermore", "Moreover", "Additionally": more than 2 in same section
+
+3. HEDGING STACK (3 or more in same paragraph = minor)
+
+4. EMOJI CLUTTER (any emoji in prose body text = nit; section-header emojis OK if intentional)
+
+5. EXCLAMATION OVERUSE (more than 1 per 300 words = minor)
+
+OUTPUT FORMAT:
+
+Return JSON with this exact shape:
+
+{
+  "verdict": "pass" or "fail",
+  "severity_summary": {
+    "blocker": <int>,
+    "major": <int>,
+    "minor": <int>,
+    "nit": <int>
+  },
+  "findings": [
+    {
+      "category": "<one of the 5 categories>",
+      "severity": "blocker | major | minor | nit",
+      "quote": "<exact text from input, max 120 chars>",
+      "issue": "<one-line explanation>",
+      "suggestion": "<concrete rewrite>"
+    }
+  ],
+  "passes": ["<categories with no findings>"]
+}
+
+Verdict is "fail" if there is any blocker or 3 or more majors. Otherwise "pass".
+
+Return only the JSON. No preamble, no commentary, no code fences.`;
+
+const form = document.getElementById('audit-form');
+const output = document.getElementById('output');
+const runBtn = document.getElementById('run-btn');
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
+function parseRepo(input) {
+  const cleaned = input.trim();
+  let m = cleaned.match(/github\.com\/([^/]+)\/([^/?#\s]+)/i);
+  if (m) return { owner: m[1], repo: m[2].replace(/\.git$/, '') };
+  m = cleaned.match(/^([\w.-]+)\/([\w.-]+)$/);
+  if (m) return { owner: m[1], repo: m[2].replace(/\.git$/, '') };
+  return null;
+}
+
+function decodeBase64Utf8(b64) {
+  const binary = atob(b64.replace(/\s/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+async function fetchReadme(owner, repo) {
+  const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/readme`;
+  const r = await fetch(url, {
+    headers: { 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (r.status === 404) {
+    throw new Error(`Repo not found or has no README: ${owner}/${repo}`);
+  }
+  if (r.status === 403) {
+    throw new Error('GitHub rate limit hit. Wait a minute or try again with a different network.');
+  }
+  if (!r.ok) {
+    throw new Error(`GitHub API ${r.status}: ${r.statusText}`);
+  }
+  const data = await r.json();
+  if (!data.content) throw new Error('GitHub returned no content for this README.');
+  return decodeBase64Utf8(data.content);
+}
+
+async function runAudit(content, apikey) {
+  const prompt = ANTI_SLOP_PROMPT.replace('{{CONTENT}}', content);
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apikey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8192,
+      temperature: 0,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!r.ok) {
+    let detail = '';
+    try {
+      const errJson = await r.json();
+      detail = errJson.error && errJson.error.message ? errJson.error.message : JSON.stringify(errJson);
+    } catch (_) {
+      detail = (await r.text()).slice(0, 300);
+    }
+    throw new Error(`Anthropic API ${r.status}: ${detail}`);
+  }
+  const data = await r.json();
+  const text = data.content
+    .filter(b => b.type === 'text')
+    .map(b => b.text)
+    .join('');
+  const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error(`Could not parse audit response as JSON. First 200 chars: ${cleaned.slice(0, 200)}`);
+  }
+}
+
+function renderError(msg) {
+  output.innerHTML = `<div class="status error"><strong>Error:</strong> ${escapeHtml(msg)}</div>`;
+}
+
+function renderLoading(msg) {
+  output.innerHTML = `<div class="status"><span class="spinner" aria-hidden="true"></span>${escapeHtml(msg)}</div>`;
+}
+
+function renderResults(result, repoName) {
+  const v = (result.verdict || 'fail').toLowerCase();
+  const ss = result.severity_summary || {};
+  const findings = Array.isArray(result.findings) ? result.findings : [];
+
+  let html = `<div class="results">`;
+  html += `<div class="verdict">`;
+  html += `<span class="verdict-tag ${v}">${escapeHtml(v.toUpperCase())}</span>`;
+  html += `<span class="verdict-meta">${escapeHtml(repoName)} &middot; ${findings.length} finding${findings.length === 1 ? '' : 's'}</span>`;
+  html += `</div>`;
+
+  html += `<div class="severity-grid">`;
+  html += `<div class="sev-card blocker"><span class="sev-count">${ss.blocker | 0}</span><span class="sev-label">Blocker</span></div>`;
+  html += `<div class="sev-card major"><span class="sev-count">${ss.major | 0}</span><span class="sev-label">Major</span></div>`;
+  html += `<div class="sev-card minor"><span class="sev-count">${ss.minor | 0}</span><span class="sev-label">Minor</span></div>`;
+  html += `<div class="sev-card nit"><span class="sev-count">${ss.nit | 0}</span><span class="sev-label">Nit</span></div>`;
+  html += `</div>`;
+
+  if (findings.length === 0) {
+    html += `<p style="color: var(--fg-dim); font-size: 0.9375rem;">No findings. README reads clean.</p>`;
+  } else {
+    const order = { blocker: 0, major: 1, minor: 2, nit: 3 };
+    findings.sort((a, b) => (order[a.severity] || 4) - (order[b.severity] || 4));
+    html += `<ul class="findings">`;
+    for (const f of findings) {
+      const sev = (f.severity || 'minor').toLowerCase();
+      html += `<li class="finding">`;
+      html += `<div class="finding-head">`;
+      html += `<span class="tag ${escapeHtml(sev)}">${escapeHtml(sev)}</span>`;
+      if (f.category) html += `<span class="finding-cat">${escapeHtml(f.category)}</span>`;
+      html += `</div>`;
+      if (f.quote) html += `<div class="finding-quote">${escapeHtml(f.quote)}</div>`;
+      if (f.issue) html += `<div class="finding-issue">${escapeHtml(f.issue)}</div>`;
+      if (f.suggestion) html += `<div class="finding-suggest">${escapeHtml(f.suggestion)}</div>`;
+      html += `</li>`;
+    }
+    html += `</ul>`;
+  }
+
+  html += `</div>`;
+  output.innerHTML = html;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const repoInput = document.getElementById('repo').value;
+  const apikey = document.getElementById('apikey').value.trim();
+
+  const parsed = parseRepo(repoInput);
+  if (!parsed) {
+    renderError('Could not parse repo. Use "owner/repo" or a github.com URL.');
+    return;
+  }
+  if (!apikey || !apikey.startsWith('sk-ant-')) {
+    renderError('API key must start with "sk-ant-".');
+    return;
+  }
+
+  runBtn.disabled = true;
+  try {
+    renderLoading(`Fetching README from ${parsed.owner}/${parsed.repo} ...`);
+    const readme = await fetchReadme(parsed.owner, parsed.repo);
+    if (readme.trim().length < 50) {
+      throw new Error('README is too short to audit (under 50 chars).');
+    }
+    renderLoading(`Auditing ${readme.length.toLocaleString()} characters ...`);
+    const result = await runAudit(readme, apikey);
+    renderResults(result, `${parsed.owner}/${parsed.repo}`);
+  } catch (err) {
+    renderError(err.message || String(err));
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
