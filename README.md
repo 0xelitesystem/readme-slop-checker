@@ -2,6 +2,8 @@
 
 Audit a GitHub README for AI-generated cliche patterns. Single HTML file. BYOK Claude API.
 
+**Live demo:** https://0xelitesystem.github.io/readme-slop-checker/
+
 ## What it does
 
 Paste a public GitHub repo (`owner/repo` or a github.com URL) and an Anthropic API key. The tool fetches the repo's default README, runs the [anti-slop-audit](https://github.com/0xelitesystem/prompt-templates/blob/main/prompts/anti-slop-audit.md) prompt against it via the Claude API, and returns a structured report:
