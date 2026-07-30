@@ -72,6 +72,10 @@ Two things you might want to change:
 
 Pull requests welcome. Keep the constraint: one HTML file, zero dependencies. If you want to add features that need a build step or a backend, fork into a sibling repo.
 
+## More
+
+Part of a catalog of single-file browser tools and plain-language references, all MIT licensed and dependency-free: [0xelitesystem.github.io](https://0xelitesystem.github.io/). Built by [elitesystem.ai](https://elitesystem.ai).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
