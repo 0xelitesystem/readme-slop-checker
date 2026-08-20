@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -273,6 +273,33 @@ footer a:hover, footer a:focus { color: var(--accent); }
 </style>
 <link rel="canonical" href="https://0xelitesystem.github.io/readme-slop-checker/">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"README Slop Checker","applicationCategory":"DeveloperApplication","operatingSystem":"Any (browser)","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://0xelitesystem.github.io/readme-slop-checker/","author":{"@type":"Person","name":"0xelitesystem","url":"https://elitesystem.ai"}}</script>
+<style>
+/* elitesystem brand tokens: chrome only, meaning preserved */
+:root, :root[data-theme="dark"] {
+  --accent: #d4ff3a;
+  --bg: #0a0a0a;
+  --bg-2: #050505;
+  --border: #1f1f1d;
+  --error: #ff6450;
+  --fg: #e8e8e3;
+  --fg-dim: #a8a8a3;
+  --info: #6fd3e0;
+  --warn: #ffb454;
+}
+:root[data-theme="light"] {
+  --accent: #2d6b00;
+  --bg: #e8ebef;
+  --bg-2: #f4f5f8;
+  --border: #c8cdd5;
+  --error: #b8341a;
+  --fg: #0a0a0a;
+  --fg-dim: #2a2a27;
+  --info: #0f5c60;
+  --warn: #a05a00;
+}
+:root { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+</style>
 </head>
 <body>
 <a href="#main" class="skip-link">Skip to main</a>
