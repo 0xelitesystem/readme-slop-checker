@@ -12,11 +12,41 @@ Paste a public GitHub repo (`owner/repo` or a github.com URL) and an Anthropic A
 - Severity counts: blocker, major, minor, nit
 - Per-finding: category, exact quote, issue, suggested rewrite
 
-## Use it
+## Use
+
+1. Enter a public repo as `owner/repo` or a github.com URL.
+2. Paste your Anthropic API key.
+3. Click "Run audit" and wait for the report: verdict, severity counts, and each finding with a suggested rewrite.
 
 The hosted version runs at `https://0xelitesystem.github.io/readme-slop-checker/` once GitHub Pages is enabled (see below).
 
 Or open `index.html` directly in any modern browser. No build step. No server required.
+
+## Why this exists
+
+READMEs drift into the same AI-written cliches, and spotting them by eye is slow. This is a single HTML file that runs a fixed audit prompt against any public README with your own key. No tracking, no backend, no dependencies. MIT licensed.
+
+## Privacy
+
+This tool makes two network calls, both only when you click "Run audit":
+
+- It fetches the README of the repo you typed from `https://api.github.com/repos/<owner>/<repo>/readme`. GitHub sees that request.
+- It sends that README text, the audit prompt and your API key to `https://api.anthropic.com/v1/messages`. Anthropic processes it under your own account and its own terms.
+
+Nothing else is sent anywhere. Your API key is held in memory for the request only and is not written to localStorage, sessionStorage or cookies. The page stores nothing in your browser.
+
+## Run locally
+
+```
+git clone https://github.com/0xelitesystem/readme-slop-checker
+cd readme-slop-checker
+```
+
+Open `index.html` in a browser, or serve the folder with `python -m http.server` and visit http://localhost:8000.
+
+## Build
+
+No build step. It is a single `index.html` file.
 
 ## Live deployment via GitHub Pages
 
